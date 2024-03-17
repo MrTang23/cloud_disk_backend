@@ -16,3 +16,8 @@ class User(models.Model):
 
 # class VerifyCode(models.Model):
 #     code = models.CharField(verbose_name='verify_code', max_length=6, unique=True)
+
+class Token(models.Model):
+    token = models.CharField(verbose_name='token', max_length=100, unique=True, primary_key=True)
+    username = models.CharField(verbose_name='user_name', max_length=20, unique=False)
+    start_time = models.CharField(verbose_name='start_time', max_length=20, default='2024-03-15 08:30:00')

@@ -37,7 +37,8 @@ def register(request):
         cloud_models.User.objects.create(username=username, password=password, uuid=user_uuid, last_login_ip=ip,
                                          register_time=register_time, last_login_time=register_time, email=email,
                                          user_status=1, email_status=0)
-        folder_path = settings.MEDIA_ROOT + username
+        folder_path = settings.MEDIA_ROOT + '/' + username
+        print(folder_path)
         if not os.path.exists(folder_path):
             os.makedirs(folder_path)
         # 发送注册成功邮件
@@ -57,8 +58,10 @@ def login(request):
     data = json.loads(request.body)
     # 生成包含大小写字母和数字的字符集合并进行md5加密作为token
     characters = string.ascii_letters + string.digits
-    token = ''.join(random.choice(characters) for _ in range(100))
-
+    token = ''
+    for item in range(3):
+        token_before = ''.join(random.choice(characters) for _ in range(10))
+        token = token + global_function.to_md5(token_before)
     # method=1时为账号密码登陆，2为邮箱以及验证码登陆
     if data.get('method') == '1':
         username = data.get('username')
@@ -66,8 +69,14 @@ def login(request):
         if cloud_models.User.objects.filter(Q(username=username)).exists():
             user_queryset = cloud_models.User.objects.get(username=username)
             user_password = user_queryset.password
-            if password == user_password:
-
+            if global_function.to_md5(password) == user_password:
+                current_time = timezone.now().strftime("%Y-%m-%d %H:%M:%S")
+                # token表中存储信息
+                cloud_models.Token.objects.create(username=username, token=token,
+                                                  start_time=current_time)
+                # 更新user表中的最后一次登陆时间
+                cloud_models.User.objects.filter(username=username, password=user_password).update(
+                    last_login_time=current_time)
                 return global_function.json_response({
                     'token': token,
                 }, '登陆成功', status.HTTP_200_OK)

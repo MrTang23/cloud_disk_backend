@@ -1,6 +1,7 @@
 import random
 import re
 import string
+from datetime import datetime
 
 from django.template import loader
 from django.utils import timezone
@@ -10,6 +11,7 @@ from django.http import JsonResponse
 from cloud_disk_backend import settings
 
 from hashlib import md5
+from cloud import models as cloud_models
 
 
 # 返回值全局定义
@@ -66,6 +68,7 @@ def send_email(receive_list, title, content):
     return True
 
 
+# 发送验证码邮件
 def send_verify_code_email(receive_list, username, request):
     # 生成指定长度的验证码
     # 生成包含大小写字母和数字的字符集合
@@ -81,3 +84,24 @@ def send_verify_code_email(receive_list, username, request):
     html_content = html_template.render(params_html, request)  # 向模版传递参数
     send_email(receive_list, 'Amos Cloud 验证码', html_content)
     return True
+
+
+# 验证请求头中token是否有效
+def check_token(request):
+    token = request.META.get('HTTP_AMOS_CLOUD_TOKEN')
+    if cloud_models.Token.objects.filter(token=token).exists():
+        # 计算时间差
+        current_time = timezone.now().strftime("%Y-%m-%d %H:%M:%S")
+        current_time = datetime.strptime(current_time, "%Y-%m-%d %H:%M:%S")
+        token_queryset = cloud_models.Token.objects.get(token=token)
+        token_start_time = datetime.strptime(token_queryset.start_time, "%Y-%m-%d %H:%M:%S")
+        time_difference = (current_time - token_start_time).total_seconds() / 3600
+
+        # 时间差大于7*24着返回false并删除该token
+        if time_difference > 7 * 24:
+            cloud_models.Token.objects.filter(token=token).delete()
+            return False
+        # token通过则返回用户名
+        return token_queryset.username
+    else:
+        return False

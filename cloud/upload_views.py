@@ -11,16 +11,20 @@ from cloud_disk_backend import global_function
 
 # 新建文件夹
 def new_folder(request):
-    data = json.loads(request.body)
-    folder_name = data.get('folder_name')
-    current_path = data.get('current_path')
-    # 查看文件夹是否存在
-    folder_path = settings.MEDIA_ROOT + current_path + folder_name
-    if not os.path.exists(folder_path):
-        os.makedirs(folder_path)
+    check_result = global_function.check_token(request)
+    if check_result:
+        data = json.loads(request.body)
+        folder_name = data.get('folder_name')
+        current_path = data.get('current_path')
+        # 查看文件夹是否存在
+        folder_path = settings.MEDIA_ROOT + '/' + check_result + '/' + current_path + folder_name
+        if not os.path.exists(folder_path):
+            os.makedirs(folder_path)
+        else:
+            return global_function.json_response('', '文件夹已存在，请勿重复创建', status.HTTP_405_METHOD_NOT_ALLOWED)
+        return global_function.json_response('', '新建文件夹成功', status.HTTP_201_CREATED)
     else:
-        return global_function.json_response('', '文件夹已存在，请勿重复创建', status.HTTP_405_METHOD_NOT_ALLOWED)
-    return global_function.json_response('', '新建文件夹成功', status.HTTP_201_CREATED)
+        return global_function.json_response('', 'token已过期或不存在，请重新登陆', status.HTTP_403_FORBIDDEN)
 
 
 # 上传单个或多个文件
