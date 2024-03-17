@@ -3,12 +3,13 @@ import re
 import string
 
 from django.template import loader
-from django.template.context_processors import request as template_request
 from django.utils import timezone
 
 from django.core.mail import send_mail
 from django.http import JsonResponse
 from cloud_disk_backend import settings
+
+from hashlib import md5
 
 
 # 返回值全局定义
@@ -33,16 +34,22 @@ def get_ip(request):
 
 # 个人信息验证：至少八位，同时包含英文以及数字
 def validate_personal_info(username, password, email):
-    password_pattern = r'^(?=.*[a-zA-Z])(?=.*[0-9]).{8,}$'
+    password_pattern = r'^(?=.*[a-zA-Z])(?=.*[0-9]).{8,20}$'
     email_pattern = r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$'
     if len(username) > 20:
         return False, '用户名长度不能超过20位'
     if not re.match(password_pattern, password):
-        print(password)
         return False, '密码不符合要求'
     if not re.match(email_pattern, email):
         return False, '邮箱格式错误'
     return True, 'success'
+
+
+# md5加密
+def to_md5(string_name):
+    md5_object = md5()
+    md5_object.update(string_name.encode(encoding='utf-8'))
+    return md5_object.hexdigest()
 
 
 # 发送邮件
@@ -62,7 +69,7 @@ def send_email(receive_list, title, content):
 def send_verify_code_email(receive_list, username, request):
     # 生成指定长度的验证码
     # 生成包含大小写字母和数字的字符集合
-    characters = string.ascii_letters + string.digits
+    characters = string.ascii_uppercase + string.digits
     # 生成指定长度的验证码
     verification_code = ''.join(random.choice(characters) for _ in range(6))
     params_html = {

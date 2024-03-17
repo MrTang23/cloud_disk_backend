@@ -7,6 +7,5 @@ urlpatterns = [
     path('upload_file', upload_views.upload_file),
     path('new_folder', upload_views.new_folder),
     path('register',user_views.register),
-
-    path('verify_code',global_views.send_verify_code_email)
+    path('login',user_views.login)
 ]
