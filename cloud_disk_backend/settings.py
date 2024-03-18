@@ -125,6 +125,5 @@ EMAIL_USE_TLS = False
 EMAIL_USE_SSL = False
 EMAIL_HOST = 'smtp.yeah.net'
 EMAIL_PORT = 25
-EMAIL_HOST_USER = 'amos_cloud@yeah.net'
-EMAIL_HOST_PASSWORD = 'CSZAGYRALKXVUEEK'  # 授权码
+
 EMAIl_FROM_NAME = 'Amos Cloud 网盘'
