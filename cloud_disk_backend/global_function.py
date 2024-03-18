@@ -1,6 +1,8 @@
+import os
 import random
 import re
 import string
+import zipfile
 from datetime import datetime
 
 from django.template import loader
@@ -109,3 +111,15 @@ def check_token(request):
             return False
     else:
         return False
+
+
+# 将文件夹压缩为zip
+# directory 是要压缩的文件夹的路径，zip_filename 是要创建的 ZIP 文件的路径和名称。
+# 函数内部使用 os.walk 来遍历文件夹中的文件和子文件夹，
+# 然后使用 zipfile.ZipFile 创建一个 ZIP 文件对象，并使用 write 方法将文件添加到 ZIP 文件中。
+# os.path.relpath 用于获取文件相对于根文件夹的路径。
+def zip_directory(directory, zip_filename):
+    with zipfile.ZipFile(zip_filename, 'w', zipfile.ZIP_DEFLATED) as zipf:
+        for root, dirs, files in os.walk(directory):
+            for file in files:
+                zipf.write(os.path.join(root, file), os.path.relpath(os.path.join(root, file), directory))

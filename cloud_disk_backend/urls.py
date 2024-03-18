@@ -7,5 +7,6 @@ urlpatterns = [
     path('new_folder', upload_views.new_folder),
     path('register', user_views.register),
     path('login', user_views.login),
-    path('get_filelist', upload_views.get_filelist)
+    path('get_filelist', upload_views.get_filelist),
+    path('download',upload_views.download)
 ]

@@ -1,17 +1,16 @@
 import json
 import os
 import time
-from datetime import datetime
 
-import requests
-from django.http import JsonResponse
+from django.http import FileResponse
 from rest_framework import status
 
-from cloud_disk_backend import settings
 from cloud_disk_backend import global_function
+from cloud_disk_backend import settings
 
 
-# 规定current_path: /name/
+# 规定current_path: /name,若处在跟路径则为空串
+# 规定file_name:/name.jpg
 
 # 新建文件夹
 def new_folder(request):
@@ -88,5 +87,33 @@ def get_filelist(request):
                 else:
                     return global_function.json_response('', '未知类型', status.HTTP_400_BAD_REQUEST)
             return global_function.json_response(file_info_list, '获取文件列表成功', status.HTTP_200_OK)
+    else:
+        return global_function.json_response('', 'token已过期或不存在，请重新登陆', status.HTTP_403_FORBIDDEN)
+
+
+# 下载文件或文件夹
+def download(request):
+    check_result = global_function.check_token(request)
+    if check_result:
+        file_path = settings.MEDIA_ROOT + '/' + check_result + request.GET.get('current_path') + request.GET.get(
+            'file_name')
+        # 检查文件是否存在
+        if not os.path.exists(file_path):
+            return global_function.json_response('', '文件不存在', status.HTTP_404_NOT_FOUND)
+        else:
+            # 检查目标路径是否为文件夹
+            if os.path.isfile(file_path):
+                return FileResponse(open(file_path, 'rb'))  # 不需要设置=content_type,FileResponse会自动添加
+            elif os.path.isdir(file_path):
+                file_path = settings.MEDIA_ROOT + '/' + check_result + request.GET.get('current_path')
+                # 对文件夹进行压缩后返回 zip
+                try:
+                    global_function.zip_directory(file_path, file_path + '.zip')
+                    return FileResponse(open(file_path + '.zip', 'rb'))
+                finally:
+                    os.remove(file_path+'.zip')
+            else:
+                return global_function.json_response('', '未知类型', status.HTTP_400_BAD_REQUEST)
+
     else:
         return global_function.json_response('', 'token已过期或不存在，请重新登陆', status.HTTP_403_FORBIDDEN)
