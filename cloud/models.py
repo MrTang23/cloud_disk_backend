@@ -14,8 +14,9 @@ class User(models.Model):
     email_status = models.IntegerField(verbose_name='user_status', default=0)  # 1:邮箱已验证 0:未验证
 
 
-# class VerifyCode(models.Model):
-#     code = models.CharField(verbose_name='verify_code', max_length=6, unique=True)
+class FileManage(models.Model):
+    username = models.CharField(verbose_name='user_name', max_length=20, unique=False)
+    file_name = models.CharField(verbose_name='file_name',max_length=50)
 
 class Token(models.Model):
     token = models.CharField(verbose_name='token', max_length=100, unique=True, primary_key=True)

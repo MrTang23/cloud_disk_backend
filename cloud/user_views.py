@@ -74,11 +74,14 @@ def login(request):
                 # token表中存储信息
                 cloud_models.Token.objects.create(username=username, token=token,
                                                   start_time=current_time)
-                # 更新user表中的最后一次登陆时间
+                # 更新user表中的最后一次登陆时间以及ip
                 cloud_models.User.objects.filter(username=username, password=user_password).update(
-                    last_login_time=current_time)
+                    last_login_time=current_time, last_login_ip=global_function.get_ip(request))
                 return global_function.json_response({
                     'token': token,
+                    'username': username,
+                    'email': user_queryset.email,
+                    'uuid': user_queryset.uuid
                 }, '登陆成功', status.HTTP_200_OK)
             else:
                 return global_function.json_response('', '密码错误', status.HTTP_403_FORBIDDEN)

@@ -89,19 +89,23 @@ def send_verify_code_email(receive_list, username, request):
 # 验证请求头中token是否有效
 def check_token(request):
     token = request.META.get('HTTP_AMOS_CLOUD_TOKEN')
+    # 验证token时同时对md5加密后的用户名和数据库中token对应的用户名匹配检查
+    username_md5 = request.META.get('HTTP_AMOS_CLOUD_USER')
     if cloud_models.Token.objects.filter(token=token).exists():
-        # 计算时间差
-        current_time = timezone.now().strftime("%Y-%m-%d %H:%M:%S")
-        current_time = datetime.strptime(current_time, "%Y-%m-%d %H:%M:%S")
         token_queryset = cloud_models.Token.objects.get(token=token)
-        token_start_time = datetime.strptime(token_queryset.start_time, "%Y-%m-%d %H:%M:%S")
-        time_difference = (current_time - token_start_time).total_seconds() / 3600
-
-        # 时间差大于7*24着返回false并删除该token
-        if time_difference > 7 * 24:
-            cloud_models.Token.objects.filter(token=token).delete()
+        if to_md5(token_queryset.username) == username_md5:
+            # 计算时间差
+            current_time = timezone.now().strftime("%Y-%m-%d %H:%M:%S")
+            current_time = datetime.strptime(current_time, "%Y-%m-%d %H:%M:%S")
+            token_start_time = datetime.strptime(token_queryset.start_time, "%Y-%m-%d %H:%M:%S")
+            time_difference = (current_time - token_start_time).total_seconds() / 3600
+            # 时间差大于7*24着返回false并删除该token
+            if time_difference > 7 * 24:
+                cloud_models.Token.objects.filter(token=token).delete()
+                return False
+            # token通过则返回用户名
+            return token_queryset.username
+        else:
             return False
-        # token通过则返回用户名
-        return token_queryset.username
     else:
         return False
