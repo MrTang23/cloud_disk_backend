@@ -123,3 +123,12 @@ def zip_directory(directory, zip_filename):
         for root, dirs, files in os.walk(directory):
             for file in files:
                 zipf.write(os.path.join(root, file), os.path.relpath(os.path.join(root, file), directory))
+    return True
+
+
+# 解压zip文件
+# zip_file 是要解压缩的 zip 文件的路径，extract_to 是解压缩后的文件夹路径
+def unzip(zip_file, extract_to):
+    with zipfile.ZipFile(zip_file, 'r') as zip_ref:
+        zip_ref.extractall(extract_to)
+    return True
