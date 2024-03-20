@@ -38,9 +38,9 @@ def register(request):
                                          register_time=register_time, last_login_time=register_time, email=email,
                                          user_status=1, email_status=0)
         folder_path = settings.MEDIA_ROOT + '/' + username
-        print(folder_path)
         if not os.path.exists(folder_path):
             os.makedirs(folder_path)
+            os.makedirs(folder_path + '/recycle')
         # 发送注册成功邮件
         # 将html转为字符串并传递参数
         params_html = {

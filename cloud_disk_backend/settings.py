@@ -16,7 +16,6 @@ DEBUG = True
 ALLOWED_HOSTS = ['*']
 
 # Application definition
-
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -90,28 +89,20 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 # Internationalization
-
 LANGUAGE_CODE = 'zh-Hans'
-
 TIME_ZONE = 'Asia/Shanghai'
-
 USE_I18N = True
-
 USE_L10N = True
-
 USE_TZ = False
 
 # Static files (CSS, JavaScript, Images)
-
 STATIC_URL = 'static/'
 
 # Media files
-MEDIA_ROOT = os.path.join(BASE_DIR, './media')
-
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 MEDIA_URL = '/media/'
 
 # Default primary key field type
-
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # 跨域
@@ -125,5 +116,6 @@ EMAIL_USE_TLS = False
 EMAIL_USE_SSL = False
 EMAIL_HOST = 'smtp.yeah.net'
 EMAIL_PORT = 25
-
+EMAIL_HOST_USER = 'amos_cloud@yeah.net'
+EMAIL_HOST_PASSWORD = 'CSZAGYRALKXVUEEK'  # 授权码
 EMAIl_FROM_NAME = 'Amos Cloud 网盘'

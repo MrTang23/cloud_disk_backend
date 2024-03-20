@@ -9,5 +9,7 @@ urlpatterns = [
     path('login', user_views.login),
     path('get_filelist', upload_views.get_filelist),
     path('download', upload_views.download),
-    path('upload_folder', upload_views.upload_folder)
+    path('upload_folder', upload_views.upload_folder),
+    path('delete', upload_views.delete),
+    path('delete_recycle', upload_views.delete_recycle)
 ]

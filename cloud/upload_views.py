@@ -1,8 +1,9 @@
 import json
 import os
 import time
+import shutil
 
-from django.http import FileResponse
+from django.http import FileResponse, QueryDict
 from rest_framework import status
 
 from cloud_disk_backend import global_function
@@ -133,9 +134,11 @@ def download(request):
         else:
             file_path = settings.MEDIA_ROOT + '/' + check_result + request.GET.get('current_path') + request.GET.get(
                 'file_name')
+        # 判断当前路径是否最后一位是否为/，是的话去除
+        if file_path[-1:] == '/':
+            file_path = file_path[:-1]
         # 检查文件是否存在
         if not os.path.exists(file_path):
-            print(1)
             return global_function.json_response('', '文件不存在', status.HTTP_404_NOT_FOUND)
         else:
             # 检查目标路径是否为文件夹
@@ -151,5 +154,67 @@ def download(request):
             else:
                 return global_function.json_response('', '未知类型', status.HTTP_400_BAD_REQUEST)
 
+    else:
+        return global_function.json_response('', 'token已过期或不存在，请重新登陆', status.HTTP_403_FORBIDDEN)
+
+
+# 删除文件或文件夹
+def delete(request):
+    params = json.loads(request.body)
+    current_path = params.get('current_path')
+    file_name = params.get('file_name')
+    check_result = global_function.check_token(request)
+    if check_result:
+        if current_path == '/':
+            file_path = settings.MEDIA_ROOT + '/' + check_result + file_name
+        else:
+            file_path = settings.MEDIA_ROOT + '/' + check_result + current_path + file_name
+        # 判断当前路径是否最后一位是否为/，是的话去除
+        if file_path[-1:] == '/':
+            file_path = file_path[:-1]
+        # 判断是否为根目录
+        if os.path.isdir(file_path):
+            # 获取上级目录名称
+            # 如果上级目录为media则禁止删除
+            parent_folder_name = os.path.basename(os.path.dirname(file_path))
+            if parent_folder_name == 'media':
+                return global_function.json_response('', '根目录禁止删除', status.HTTP_403_FORBIDDEN)
+        # 检查文件是否存在
+        if not os.path.exists(file_path):
+            return global_function.json_response('', '文件不存在', status.HTTP_404_NOT_FOUND)
+        else:
+            # 将文件或文件夹移动到recycle目录下
+            recycle_path = settings.MEDIA_ROOT + '/' + check_result + '/recycle'
+            shutil.move(file_path, recycle_path)
+            return global_function.json_response('', '已移动至回收站', status.HTTP_200_OK)
+    else:
+        return global_function.json_response('', 'token已过期或不存在，请重新登陆', status.HTTP_403_FORBIDDEN)
+
+
+def delete_recycle(request):
+    params = json.loads(request.body)
+    file_name = '/recycle' + params.get('file_name')
+    check_result = global_function.check_token(request)
+    if check_result:
+        file_path = settings.MEDIA_ROOT + '/' + check_result + file_name
+        # 判断当前路径是否最后一位是否为/，是的话去除
+        if file_path[-1:] == '/':
+            file_path = file_path[:-1]
+        if os.path.isdir(file_path):
+            directory_name = os.path.basename(file_path)
+            if directory_name == 'recycle':
+                return global_function.json_response('', '回收站禁止删除', status.HTTP_403_FORBIDDEN)
+        # 检查文件是否存在
+        if not os.path.exists(file_path):
+            return global_function.json_response('', '文件不存在', status.HTTP_404_NOT_FOUND)
+        else:
+            os.chmod(file_path, 0o777)
+            if os.path.isdir(file_path):
+                shutil.rmtree(file_path, ignore_errors=False, onerror=None)
+            elif os.path.isfile(file_path):
+                os.remove(file_path)
+            else:
+                return global_function.json_response('', '未知类型无法删除', status.HTTP_400_BAD_REQUEST)
+            return global_function.json_response('', '已删除', status.HTTP_200_OK)
     else:
         return global_function.json_response('', 'token已过期或不存在，请重新登陆', status.HTTP_403_FORBIDDEN)
