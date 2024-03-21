@@ -11,5 +11,6 @@ urlpatterns = [
     path('download', upload_views.download),
     path('upload_folder', upload_views.upload_folder),
     path('delete', upload_views.delete),
-    path('delete_recycle', upload_views.delete_recycle)
+    path('delete_recycle', upload_views.delete_recycle),
+    path('check_user_status', user_views.check_user_status)
 ]

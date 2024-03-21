@@ -20,7 +20,7 @@ from cloud import models as cloud_models
 def json_response(data, msg, http_status):
     res = {
         'data': data,
-        'msg': msg
+        'message': msg
     }
     return JsonResponse(res, status=http_status)
 

@@ -30,7 +30,7 @@ def register(request):
         # 校验个人信息是否合法
         validate_info, validate_info_msg = global_function.validate_personal_info(username, password, email)
         if not validate_info:
-            return global_function.json_response('', validate_info_msg, status.HTTP_403_FORBIDDEN)
+            return global_function.json_response('', validate_info_msg, status.HTTP_405_METHOD_NOT_ALLOWED)
         # 对密码进行md5加密
         password = global_function.to_md5(password)
         # 数据库中创建用户并在media文件夹下创建用户名分区
@@ -84,6 +84,19 @@ def login(request):
                     'uuid': user_queryset.uuid
                 }, '登陆成功', status.HTTP_200_OK)
             else:
-                return global_function.json_response('', '密码错误', status.HTTP_403_FORBIDDEN)
+                return global_function.json_response('', '密码错误', status.HTTP_405_METHOD_NOT_ALLOWED)
         else:
-            return global_function.json_response('', '用户名不存在', status.HTTP_403_FORBIDDEN)
+            return global_function.json_response('', '用户名不存在', status.HTTP_405_METHOD_NOT_ALLOWED)
+
+
+def check_user_status(request):
+    check_result = global_function.check_token(request)
+    if check_result:
+        user_queryset = cloud_models.User.objects.get(username=check_result)
+        return global_function.json_response({
+            'username': user_queryset.username,
+            'email': user_queryset.email,
+            'uuid': user_queryset.uuid
+        }, '登陆成功', status.HTTP_200_OK)
+    else:
+        return global_function.json_response('', 'token已过期或不存在，请重新登陆', status.HTTP_403_FORBIDDEN)

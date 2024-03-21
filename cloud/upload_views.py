@@ -178,7 +178,7 @@ def delete(request):
             # 如果上级目录为media则禁止删除
             parent_folder_name = os.path.basename(os.path.dirname(file_path))
             if parent_folder_name == 'media':
-                return global_function.json_response('', '根目录禁止删除', status.HTTP_403_FORBIDDEN)
+                return global_function.json_response('', '根目录禁止删除', status.HTTP_405_METHOD_NOT_ALLOWED)
         # 检查文件是否存在
         if not os.path.exists(file_path):
             return global_function.json_response('', '文件不存在', status.HTTP_404_NOT_FOUND)
@@ -203,7 +203,7 @@ def delete_recycle(request):
         if os.path.isdir(file_path):
             directory_name = os.path.basename(file_path)
             if directory_name == 'recycle':
-                return global_function.json_response('', '回收站禁止删除', status.HTTP_403_FORBIDDEN)
+                return global_function.json_response('', '回收站禁止删除', status.HTTP_405_METHOD_NOT_ALLOWED)
         # 检查文件是否存在
         if not os.path.exists(file_path):
             return global_function.json_response('', '文件不存在', status.HTTP_404_NOT_FOUND)
