@@ -63,7 +63,7 @@ class CustomMiddleware:
         check_result = check_token(request)
         if check_result:
             # 调用视图（处理请求）
-            response = self.get_response(data)
+            response = self.get_response(data, check_result)
             # 如果需要，也可以在此处对响应进行处理
             return response
         else:

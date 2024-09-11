@@ -14,81 +14,69 @@ from cloud_disk_backend import settings
 # 规定file_name:/name.jpg
 
 # 新建文件夹
-def new_folder(request):
-    check_result = global_function.check_token(request)
-    if check_result:
-        data = json.loads(request.body)
-        folder_name = data.get('folder_name')
-        current_path = data.get('current_path')
-        # 查看文件夹是否存在
-        folder_path = settings.MEDIA_ROOT + '/' + check_result + current_path + folder_name
-        print(folder_path)
-        if not os.path.exists(folder_path):
-            os.makedirs(folder_path)
-        else:
-            return global_function.json_response('', '文件夹已存在，请勿重复创建', status.HTTP_405_METHOD_NOT_ALLOWED)
-        return global_function.json_response('', '新建文件夹成功', status.HTTP_201_CREATED)
+def new_folder(request, username):
+    data = json.loads(request.body)
+    folder_name = data.get('folder_name')
+    current_path = data.get('current_path')
+    # 查看文件夹是否存在
+    folder_path = settings.MEDIA_ROOT + '/' + username + current_path + folder_name
+    print(folder_path)
+    if not os.path.exists(folder_path):
+        os.makedirs(folder_path)
     else:
-        return global_function.json_response('', 'token已过期或不存在，请重新登陆', status.HTTP_403_FORBIDDEN)
+        return global_function.json_response('', '文件夹已存在，请勿重复创建', status.HTTP_405_METHOD_NOT_ALLOWED)
+    return global_function.json_response('', '新建文件夹成功', status.HTTP_201_CREATED)
 
 
 # 上传单个或多个文件
-def upload_file(request):
-    check_result = global_function.check_token(request)
-    if check_result:
-        # 如果项目根目录没有media文件夹则自动创建
-        if not os.path.exists(settings.MEDIA_ROOT):
-            os.makedirs(settings.MEDIA_ROOT)
-        file_list = request.FILES.getlist('file_list')
-        current_path = request.POST.get('current_path')
-        # 上传文件
-        for file in file_list:
-            f = open(settings.MEDIA_ROOT + '/' + check_result + current_path + file.name, mode='wb+')
-            for chunk in file.chunks():
-                f.write(chunk)
-            f.close()
-        return global_function.json_response('', '文件上传成功', status.HTTP_200_OK)
-    else:
-        return global_function.json_response('', 'token已过期或不存在，请重新登陆', status.HTTP_403_FORBIDDEN)
+def upload_file(request, username):
+    # 如果项目根目录没有media文件夹则自动创建
+    if not os.path.exists(settings.MEDIA_ROOT):
+        os.makedirs(settings.MEDIA_ROOT)
+    file_list = request.FILES.getlist('file_list')
+    current_path = request.POST.get('current_path')
+    # 上传文件
+    for file in file_list:
+        f = open(settings.MEDIA_ROOT + '/' + username + current_path + file.name, mode='wb+')
+        for chunk in file.chunks():
+            f.write(chunk)
+        f.close()
+    return global_function.json_response('', '文件上传成功', status.HTTP_200_OK)
 
 
 # 上传文件夹
 # 先在前端将文件夹进行压缩，向后端传一个zip并在后端解压
-def upload_folder(request):
-    check_result = global_function.check_token(request)
-    if check_result:
-        file_list = request.FILES.getlist('folder_list')
-        current_path = request.POST.get('current_path')
-        # 上传zip文件
-        for file in file_list:
-            # 判断前端传来的文件时候为zip
-            if file.name[-4:] != '.zip':
-                return global_function.json_response('', '上传失败，文件' + file.name + '格式不合法',
-                                                     status.HTTP_405_METHOD_NOT_ALLOWED)
+def upload_folder(request, username):
+    file_list = request.FILES.getlist('folder_list')
+    current_path = request.POST.get('current_path')
+    # 上传zip文件
+    for file in file_list:
+        # 判断前端传来的文件时候为zip
+        if file.name[-4:] != '.zip':
+            return global_function.json_response('', '上传失败，文件' + file.name + '格式不合法',
+                                                 status.HTTP_405_METHOD_NOT_ALLOWED)
+        else:
+            folder_path_zip = settings.MEDIA_ROOT + '/' + username + current_path + file.name
+            # 判断是否存在同名文件夹
+            if not os.path.exists(folder_path_zip[:-4]):
+                # 判断是否有同名zip
+                if os.path.exists(folder_path_zip):
+                    os.rename(folder_path_zip, folder_path_zip[:-4] + '_copy.zip')
+                f = open(folder_path_zip, mode='wb+')
+                for chunk in file.chunks():
+                    f.write(chunk)
+                f.close()
+                # 解压
+                global_function.unzip(folder_path_zip, folder_path_zip[:-4])
+                # 删除上传的zip文件
+                os.remove(settings.MEDIA_ROOT + '/' + username + current_path + file.name)
+                # 将改名后的文件删除
+                if os.path.exists(folder_path_zip[:-4] + '_copy.zip'):
+                    os.rename(folder_path_zip[:-4] + '_copy.zip', folder_path_zip)
             else:
-                folder_path_zip = settings.MEDIA_ROOT + '/' + check_result + current_path + file.name
-                # 判断是否存在同名文件夹
-                if not os.path.exists(folder_path_zip[:-4]):
-                    # 判断是否有同名zip
-                    if os.path.exists(folder_path_zip):
-                        os.rename(folder_path_zip, folder_path_zip[:-4] + '_copy.zip')
-                    f = open(folder_path_zip, mode='wb+')
-                    for chunk in file.chunks():
-                        f.write(chunk)
-                    f.close()
-                    # 解压
-                    global_function.unzip(folder_path_zip, folder_path_zip[:-4])
-                    # 删除上传的zip文件
-                    os.remove(settings.MEDIA_ROOT + '/' + check_result + current_path + file.name)
-                    # 将改名后的文件删除
-                    if os.path.exists(folder_path_zip[:-4] + '_copy.zip'):
-                        os.rename(folder_path_zip[:-4] + '_copy.zip', folder_path_zip)
-                else:
-                    return global_function.json_response('', '文件夹' + file.name[:-4] + '已存在',
-                                                         status.HTTP_405_METHOD_NOT_ALLOWED)
-        return global_function.json_response('', '文件夹上传成功', status.HTTP_200_OK)
-    else:
-        return global_function.json_response('', 'token已过期或不存在，请重新登陆', status.HTTP_403_FORBIDDEN)
+                return global_function.json_response('', '文件夹' + file.name[:-4] + '已存在',
+                                                     status.HTTP_405_METHOD_NOT_ALLOWED)
+    return global_function.json_response('', '文件夹上传成功', status.HTTP_200_OK)
 
 
 # 获取某目录下文件列表
