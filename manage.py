@@ -4,6 +4,7 @@ import os
 import sys
 
 from cloud_disk_backend import settings
+from cloud_disk_backend.settings import MEDIA_ROOT
 
 
 def main():

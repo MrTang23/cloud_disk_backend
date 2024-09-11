@@ -22,6 +22,7 @@ def new_folder(request):
         current_path = data.get('current_path')
         # 查看文件夹是否存在
         folder_path = settings.MEDIA_ROOT + '/' + check_result + current_path + folder_name
+        print(folder_path)
         if not os.path.exists(folder_path):
             os.makedirs(folder_path)
         else:
@@ -109,15 +110,18 @@ def get_filelist(request):
                 file_info = {
                     'type': '',
                     'name': file_name,
-                    'size': str(round(os.path.getsize(file_path) / 1024, 1)) + ' kb',
+                    'size': '',
                     'last_modified': time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(os.path.getmtime(file_path)))
                 }
                 file_info_list.append(file_info)
                 # 判断是否是文件
                 if os.path.isfile(file_path):
-                    file_info['type'] = 'file'
+                    file_info['type'] = '文件'
+                    file_info['size'] = global_function.convert_bytes(round(os.path.getsize(file_path), 1))
                 elif os.path.isdir(file_path):
-                    file_info['type'] = 'folder'
+                    file_info['type'] = '文件夹'
+                    total_size_bytes = global_function.get_folder_size(file_path)
+                    file_info['size'] = global_function.convert_bytes(total_size_bytes)
                 else:
                     return global_function.json_response('', '未知类型', status.HTTP_400_BAD_REQUEST)
             return global_function.json_response(file_info_list, '获取文件列表成功', status.HTTP_200_OK)
@@ -134,6 +138,7 @@ def download(request):
         else:
             file_path = settings.MEDIA_ROOT + '/' + check_result + request.GET.get('current_path') + request.GET.get(
                 'file_name')
+        print(file_path)
         # 判断当前路径是否最后一位是否为/，是的话去除
         if file_path[-1:] == '/':
             file_path = file_path[:-1]
@@ -161,14 +166,15 @@ def download(request):
 # 删除文件或文件夹
 def delete(request):
     params = json.loads(request.body)
-    current_path = params.get('current_path')
-    file_name = params.get('file_name')
+    current_path = params['current_path']
+    file_name = params['file_name']
     check_result = global_function.check_token(request)
     if check_result:
         if current_path == '/':
             file_path = settings.MEDIA_ROOT + '/' + check_result + file_name
         else:
             file_path = settings.MEDIA_ROOT + '/' + check_result + current_path + file_name
+
         # 判断当前路径是否最后一位是否为/，是的话去除
         if file_path[-1:] == '/':
             file_path = file_path[:-1]
@@ -193,7 +199,7 @@ def delete(request):
 
 def delete_recycle(request):
     params = json.loads(request.body)
-    file_name = '/recycle' + params.get('file_name')
+    file_name = '/recycle' + params['file_name']
     check_result = global_function.check_token(request)
     if check_result:
         file_path = settings.MEDIA_ROOT + '/' + check_result + file_name
@@ -212,6 +218,7 @@ def delete_recycle(request):
             if os.path.isdir(file_path):
                 shutil.rmtree(file_path, ignore_errors=False, onerror=None)
             elif os.path.isfile(file_path):
+
                 os.remove(file_path)
             else:
                 return global_function.json_response('', '未知类型无法删除', status.HTTP_400_BAD_REQUEST)

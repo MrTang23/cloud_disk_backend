@@ -36,6 +36,9 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+
+    # 自定义中间件
+    'cloud.middleware.CustomMiddleware'
 ]
 
 ROOT_URLCONF = 'cloud_disk_backend.urls'

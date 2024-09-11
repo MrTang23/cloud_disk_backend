@@ -1,9 +1,9 @@
+import math
 import os
 import random
 import re
 import string
 import zipfile
-from datetime import datetime
 
 from django.template import loader
 from django.utils import timezone
@@ -12,13 +12,11 @@ from django.core.mail import send_mail
 from django.http import JsonResponse
 from cloud_disk_backend import settings
 
-from hashlib import md5
-from cloud import models as cloud_models
-
 
 # 返回值全局定义
 def json_response(data, msg, http_status):
     res = {
+        'status': http_status,
         'data': data,
         'message': msg
     }
@@ -47,13 +45,6 @@ def validate_personal_info(username, password, email):
     if not re.match(email_pattern, email):
         return False, '邮箱格式错误'
     return True, 'success'
-
-
-# md5加密
-def to_md5(string_name):
-    md5_object = md5()
-    md5_object.update(string_name.encode(encoding='utf-8'))
-    return md5_object.hexdigest()
 
 
 # 发送邮件
@@ -88,31 +79,6 @@ def send_verify_code_email(receive_list, username, request):
     return True
 
 
-# 验证请求头中token是否有效
-def check_token(request):
-    token = request.META.get('HTTP_AMOS_CLOUD_TOKEN')
-    # 验证token时同时对md5加密后的用户名和数据库中token对应的用户名匹配检查
-    username_md5 = request.META.get('HTTP_AMOS_CLOUD_USER')
-    if cloud_models.Token.objects.filter(token=token).exists():
-        token_queryset = cloud_models.Token.objects.get(token=token)
-        if to_md5(token_queryset.username) == username_md5:
-            # 计算时间差
-            current_time = timezone.now().strftime("%Y-%m-%d %H:%M:%S")
-            current_time = datetime.strptime(current_time, "%Y-%m-%d %H:%M:%S")
-            token_start_time = datetime.strptime(token_queryset.start_time, "%Y-%m-%d %H:%M:%S")
-            time_difference = (current_time - token_start_time).total_seconds() / 3600
-            # 时间差大于7*24着返回false并删除该token
-            if time_difference > 7 * 24:
-                cloud_models.Token.objects.filter(token=token).delete()
-                return False
-            # token通过则返回用户名
-            return token_queryset.username
-        else:
-            return False
-    else:
-        return False
-
-
 # 将文件夹压缩为zip
 # directory 是要压缩的文件夹的路径，zip_filename 是要创建的 ZIP 文件的路径和名称。
 # 函数内部使用 os.walk 来遍历文件夹中的文件和子文件夹，
@@ -132,3 +98,31 @@ def unzip(zip_file, extract_to):
     with zipfile.ZipFile(zip_file, 'r') as zip_ref:
         zip_ref.extractall(extract_to)
     return True
+
+
+# 获取文件夹总大小
+def get_folder_size(folder_path):
+    total_size = 0
+    for dirpath, dirnames, filenames in os.walk(folder_path):
+        for filename in filenames:
+            filepath = os.path.join(dirpath, filename)
+            total_size += os.path.getsize(filepath)
+    return total_size
+
+
+# 转换为更容易理解的单位
+def convert_bytes(size_bytes):
+    if size_bytes == 0:
+        return "0B"
+    size_name = ("B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB")
+    i = int(math.floor(math.log(size_bytes, 1024)))
+    p = math.pow(1024, i)
+    s = round(size_bytes / p, 1)
+    return "%s %s" % (s, size_name[i])
+
+# 校验文件或文件夹名称是否合法
+def is_valid_filename(filename):
+    # 定义正则表达式：只允许字母、数字、下划线、连字符，且不能以空格开头或结尾
+    # 不允许的字符包括：\/:*?"<>|（这些在Windows文件系统中是非法的字符）
+    pattern = r'^[^\\/:*?"<>|]+[^\\/:*?"<>|\s]$'
+    return bool(re.match(pattern, filename))
