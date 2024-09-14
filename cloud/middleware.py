@@ -26,12 +26,14 @@ class CustomMiddleware:
         self.get_response = get_response
 
     def __call__(self, request):
-        # 在视图处理请求之前执行操作
-        check_result = check_token_validity(request)
-        if check_result:
-            # 调用视图（处理请求）
-            response = self.get_response(request, check_result)
-            # 如果需要，也可以在此处对响应进行处理
-            return response
+        excluded_paths = ['/login', '/register']  # 不需要鉴权的路径列表
+        if request.path in excluded_paths:
+            response = self.get_response(request)
         else:
-            return global_function.json_response('', 'token已过期或不存在，请重新登陆', status.HTTP_401_UNAUTHORIZED)
+            check_result = check_token_validity(request)
+            if check_result:
+                response = self.get_response(request, check_result)
+            else:
+                response = global_function.json_response('', 'token已过期或不存在，请重新登陆',
+                                                         status.HTTP_401_UNAUTHORIZED)
+        return response

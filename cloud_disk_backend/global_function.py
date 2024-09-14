@@ -4,6 +4,7 @@ import random
 import re
 import string
 import zipfile
+from hashlib import md5
 
 from django.template import loader
 from django.utils import timezone
@@ -11,6 +12,13 @@ from django.utils import timezone
 from django.core.mail import send_mail
 from django.http import JsonResponse
 from cloud_disk_backend import settings
+
+
+# md5加密
+def to_md5(string_name):
+    md5_object = md5()
+    md5_object.update(string_name.encode(encoding='utf-8'))
+    return md5_object.hexdigest()
 
 
 # 返回值全局定义
@@ -119,6 +127,7 @@ def convert_bytes(size_bytes):
     p = math.pow(1024, i)
     s = round(size_bytes / p, 1)
     return "%s %s" % (s, size_name[i])
+
 
 # 校验文件或文件夹名称是否合法
 def is_valid_filename(filename):

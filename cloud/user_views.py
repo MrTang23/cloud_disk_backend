@@ -20,7 +20,6 @@ def register(request):
     username = data.get('username')
     password = data.get('password')
     email = data.get('email')
-    user_uuid = str(uuid.uuid4())[:16]
     ip = global_function.get_ip(request)
     register_time = timezone.now().strftime("%Y-%m-%d %H:%M:%S")
     if cloud_models.User.objects.filter(Q(username=username)).exists():
@@ -35,7 +34,7 @@ def register(request):
         # 对密码进行md5加密
         password = global_function.to_md5(password)
         # 数据库中创建用户并在media文件夹下创建用户名分区
-        cloud_models.User.objects.create(username=username, password=password, uuid=user_uuid, last_login_ip=ip,
+        cloud_models.User.objects.create(username=username, password=password, last_login_ip=ip,
                                          register_time=register_time, last_login_time=register_time, email=email,
                                          user_status=1, email_status=0)
         folder_path = settings.MEDIA_ROOT + '/' + username
@@ -66,12 +65,14 @@ def login(request):
             user_queryset = cloud_models.User.objects.get(username=username)
             user_password = user_queryset.password
             if global_function.to_md5(password) == user_password:
-                current_time = timezone.now().strftime("%Y-%m-%d %H:%M:%S")
                 # token表中存储信息
                 temp_token = TempToken.objects.create(username=username)
+
                 # 更新user表中的最后一次登陆时间以及ip
+                current_time = timezone.now().strftime("%Y-%m-%d %H:%M:%S")
                 cloud_models.User.objects.filter(username=username, password=user_password).update(
                     last_login_time=current_time, last_login_ip=global_function.get_ip(request))
+
                 return global_function.json_response({
                     'token': temp_token.token,
                     'username': username,
