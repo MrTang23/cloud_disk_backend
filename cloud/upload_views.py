@@ -8,23 +8,45 @@ from rest_framework import status
 
 from cloud_disk_backend import global_function
 from cloud_disk_backend import settings
+from cloud import models as cloud_models
 
 
 # 规定current_path: /name
 # 规定file_name:/name.jpg
 
 # 新建文件夹
-def new_folder(request, username):
+def new_folder(request):
+    user_id = request.META.get('HTTP_AMOS_CLOUD_ID')
     data = json.loads(request.body)
     folder_name = data.get('folder_name')
-    current_path = data.get('current_path')
-    # 查看文件夹是否存在
-    folder_path = settings.MEDIA_ROOT + '/' + username + current_path + folder_name
-    print(folder_path)
-    if not os.path.exists(folder_path):
-        os.makedirs(folder_path)
+    parent_folder_id = data.get('parent_folder_id')
+
+    try:
+        # 查询用户是否存在
+        user = cloud_models.User.objects.get(uuid=user_id)
+    except cloud_models.User.DoesNotExist:
+        return global_function.json_response('', '用户不存在', status.HTTP_404_NOT_FOUND)
+
+    if parent_folder_id:
+        try:
+            # 查询父文件夹是否存在
+            parent_folder = cloud_models.Folder.objects.get(folder_id=parent_folder_id, uuid=user)
+        except cloud_models.Folder.DoesNotExist:
+            return global_function.json_response('', '父文件夹不存在', status.HTTP_404_NOT_FOUND)
+
+        # 检查文件夹名称是否已存在于父文件夹中
+        if cloud_models.Folder.objects.filter(name=folder_name, parent_folder_id=parent_folder, uuid=user).exists():
+            return global_function.json_response('', '文件夹已存在，请勿重复创建', status.HTTP_405_METHOD_NOT_ALLOWED)
     else:
-        return global_function.json_response('', '文件夹已存在，请勿重复创建', status.HTTP_405_METHOD_NOT_ALLOWED)
+        return global_function.json_response('', '禁止在该路径创建文件夹', status.HTTP_405_METHOD_NOT_ALLOWED)
+
+    # 创建新文件夹
+    cloud_models.Folder.objects.create(
+        name=folder_name,
+        uuid=user,
+        parent_folder_id=parent_folder
+    )
+
     return global_function.json_response('', '新建文件夹成功', status.HTTP_201_CREATED)
 
 
