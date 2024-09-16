@@ -2,6 +2,7 @@ import json
 import os
 import time
 import shutil
+import re
 
 from django.http import FileResponse, QueryDict
 from rest_framework import status
@@ -26,6 +27,19 @@ def new_folder(request):
         user = cloud_models.User.objects.get(uuid=user_id)
     except cloud_models.User.DoesNotExist:
         return global_function.json_response('', '用户不存在', status.HTTP_404_NOT_FOUND)
+
+    # 校验文件夹名称是否为空
+    if not folder_name:
+        return global_function.json_response('', '文件夹名称不能为空', status.HTTP_400_BAD_REQUEST)
+
+    # 校验文件夹名称长度
+    if len(folder_name) < 1 or len(folder_name) > 255:
+        return global_function.json_response('', '文件夹名称长度应在1到255字符之间', status.HTTP_400_BAD_REQUEST)
+
+    # 校验是否包含非法字符（正则表达式）
+    # 文件夹名称只允许字母、数字、空格、下划线和横线
+    if not re.match(r'^[\w\-\s]+$', folder_name):
+        return global_function.json_response('', '文件夹名称包含非法字符', status.HTTP_400_BAD_REQUEST)
 
     if parent_folder_id:
         try:
