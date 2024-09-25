@@ -66,9 +66,6 @@ def new_folder(request):
 
 # 上传单个或多个文件
 def upload_file(request, username):
-    # 如果项目根目录没有media文件夹则自动创建
-    if not os.path.exists(settings.MEDIA_ROOT):
-        os.makedirs(settings.MEDIA_ROOT)
     file_list = request.FILES.getlist('file_list')
     current_path = request.POST.get('current_path')
     # 上传文件
@@ -117,40 +114,24 @@ def upload_folder(request, username):
 
 # 获取某目录下文件列表
 def get_filelist(request):
-    check_result = global_function.check_token(request)
-    if check_result:
-        current_path = settings.MEDIA_ROOT + '/' + check_result + request.GET.get('current_path')
-        # 查看文件夹是否存在
-        if not os.path.exists(current_path):
-            return global_function.json_response('', '文件夹不存在', status.HTTP_404_NOT_FOUND)
-        else:
-            # 获取目录下的所有文件和文件夹列表
-            files_list = os.listdir(current_path)
-            # 创建一个空列表，用于存储文件信息
-            file_info_list = []
-            # 遍历文件列表
-            for file_name in files_list:
-                file_path = os.path.join(current_path, file_name)
-                file_info = {
-                    'type': '',
-                    'name': file_name,
-                    'size': '',
-                    'last_modified': time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(os.path.getmtime(file_path)))
-                }
-                file_info_list.append(file_info)
-                # 判断是否是文件
-                if os.path.isfile(file_path):
-                    file_info['type'] = '文件'
-                    file_info['size'] = global_function.convert_bytes(round(os.path.getsize(file_path), 1))
-                elif os.path.isdir(file_path):
-                    file_info['type'] = '文件夹'
-                    total_size_bytes = global_function.get_folder_size(file_path)
-                    file_info['size'] = global_function.convert_bytes(total_size_bytes)
-                else:
-                    return global_function.json_response('', '未知类型', status.HTTP_400_BAD_REQUEST)
-            return global_function.json_response(file_info_list, '获取文件列表成功', status.HTTP_200_OK)
-    else:
-        return global_function.json_response('', 'token已过期或不存在，请重新登陆', status.HTTP_403_FORBIDDEN)
+    user_id = request.META.get('HTTP_AMOS_CLOUD_ID')
+    parent_folder_id = request.GET.get('parent_folder_id')
+    file_list = []
+
+    # 获取文件夹列表
+    subfolders = cloud_models.Folder.objects.filter(uuid=user_id, parent_folder_id=parent_folder_id).values_list('name',
+                                                                                                                 flat=True)
+    # 填充 file_list
+    for folder_name in subfolders:
+        temp_file_obj = {
+            'name': folder_name,
+            'type': '文件夹',  # 可以设置类型为 'folder'
+            'size': '--',  # 文件夹没有大小，留空或设置为 0
+            'lastModifiedTime': '',  # 如果有修改时间可以填充
+        }
+        file_list.append(temp_file_obj)
+
+    return global_function.json_response(file_list, '获取文件列表成功', status.HTTP_200_OK)
 
 
 # 下载文件或文件夹
