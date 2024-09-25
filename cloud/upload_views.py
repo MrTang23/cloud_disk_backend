@@ -77,41 +77,6 @@ def upload_file(request, username):
     return global_function.json_response('', '文件上传成功', status.HTTP_200_OK)
 
 
-# 上传文件夹
-# 先在前端将文件夹进行压缩，向后端传一个zip并在后端解压
-def upload_folder(request, username):
-    file_list = request.FILES.getlist('folder_list')
-    current_path = request.POST.get('current_path')
-    # 上传zip文件
-    for file in file_list:
-        # 判断前端传来的文件时候为zip
-        if file.name[-4:] != '.zip':
-            return global_function.json_response('', '上传失败，文件' + file.name + '格式不合法',
-                                                 status.HTTP_405_METHOD_NOT_ALLOWED)
-        else:
-            folder_path_zip = settings.MEDIA_ROOT + '/' + username + current_path + file.name
-            # 判断是否存在同名文件夹
-            if not os.path.exists(folder_path_zip[:-4]):
-                # 判断是否有同名zip
-                if os.path.exists(folder_path_zip):
-                    os.rename(folder_path_zip, folder_path_zip[:-4] + '_copy.zip')
-                f = open(folder_path_zip, mode='wb+')
-                for chunk in file.chunks():
-                    f.write(chunk)
-                f.close()
-                # 解压
-                global_function.unzip(folder_path_zip, folder_path_zip[:-4])
-                # 删除上传的zip文件
-                os.remove(settings.MEDIA_ROOT + '/' + username + current_path + file.name)
-                # 将改名后的文件删除
-                if os.path.exists(folder_path_zip[:-4] + '_copy.zip'):
-                    os.rename(folder_path_zip[:-4] + '_copy.zip', folder_path_zip)
-            else:
-                return global_function.json_response('', '文件夹' + file.name[:-4] + '已存在',
-                                                     status.HTTP_405_METHOD_NOT_ALLOWED)
-    return global_function.json_response('', '文件夹上传成功', status.HTTP_200_OK)
-
-
 # 获取某目录下文件列表
 def get_filelist(request):
     user_id = request.META.get('HTTP_AMOS_CLOUD_ID')
