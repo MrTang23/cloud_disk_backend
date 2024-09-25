@@ -1,5 +1,6 @@
 import json
 import os
+from xml.etree.ElementTree import tostring
 
 from django.core.exceptions import ObjectDoesNotExist
 from django.utils import timezone
@@ -56,19 +57,20 @@ def register(request):
     )
 
     # 创建用户名的媒体文件夹
-    # 确保 MEDIA_ROOT 和 username 有效
-    if isinstance(settings.MEDIA_ROOT, str) and isinstance(username, str):
-        user_folder = os.path.join(settings.MEDIA_ROOT, username)
-        os.makedirs(os.path.join(user_folder, 'recycle'), exist_ok=True)
+    # 确保 MEDIA_ROOT 和 uuid 有效
+    user_id = str(user.uuid)
+    if isinstance(settings.MEDIA_ROOT, str) and isinstance(user_id, str):
+        user_folder = os.path.join(settings.MEDIA_ROOT, user_id)
+        os.makedirs(os.path.join(user_folder), exist_ok=True)
     else:
-        raise ValueError('MEDIA_ROOT or username is not a valid string')
+        return global_function.json_response('', 'MEDIA_ROOT 或 user_id 不是有效的字符串', status.HTTP_400_BAD_REQUEST)
 
     # 发送注册成功邮件
-    html_content = loader.get_template('register_success.html').render({
-        'username': username,
-        'current_time': register_time
-    }, request)
-    global_function.send_email([email], '欢迎来到Amos Cloud网盘！', html_content)
+    # html_content = loader.get_template('register_success.html').render({
+    #     'username': username,
+    #     'current_time': register_time
+    # }, request)
+    # global_function.send_email([email], '欢迎来到Amos Cloud网盘！', html_content)
 
     return global_function.json_response('', '注册成功', status.HTTP_200_OK)
 
