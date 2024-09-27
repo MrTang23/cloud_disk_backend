@@ -12,7 +12,7 @@ class User(models.Model):
     uuid = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     register_time = models.CharField(verbose_name='register_time', max_length=20, default='2024-03-15 08:30:00')
     last_login_ip = models.GenericIPAddressField('ip', protocol='both', unpack_ipv4=True, blank=True, null=True)
-    last_login_time = models.DateTimeField('last_login_time', default='2024-03-15 08:30:00')
+    last_login_time = models.DateTimeField('last_login_time', default=timezone.now)
     user_status = models.BooleanField('user_status', default=True)  # True:已启用 False:已禁用
     email_status = models.BooleanField('email_status', default=False)  # True:邮箱已验证 False:未验证
 

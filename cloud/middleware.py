@@ -4,7 +4,7 @@ from uuid import UUID
 from cloud.models import TempToken, User
 from cloud_disk_backend import global_function, settings
 
-EXCLUDED_PATHS = ['/login', '/register']
+EXCLUDED_PATHS = ['/login', '/register', '/find_user']
 INVALID_TOKEN_MSG = 'Token 或用户 ID 无效或不匹配，请检查后重试。'
 FILE_SYSTEM_ERROR_MSG = '后端文件系统损坏'
 
