@@ -1,17 +1,106 @@
 import math
-import os
 import random
 import re
 import string
-import zipfile
-from hashlib import md5
 
+from hashlib import md5
 from django.template import loader
 from django.utils import timezone
-
 from django.core.mail import send_mail
 from django.http import JsonResponse
 from cloud_disk_backend import settings
+from functools import lru_cache
+
+# 文件类型映射
+file_type_map = {
+    'pdf': 'PDF 文档',
+    'doc': 'Word 文档',
+    'docx': 'Word 文档',
+    'xls': 'Excel 表格',
+    'xlsx': 'Excel 表格',
+    'ppt': 'PowerPoint 演示文稿',
+    'pptx': 'PowerPoint 演示文稿',
+    'txt': '文本文件',
+    'md': 'Markdown 文件',
+    'pages': 'Pages 文稿',
+    'numbers': 'Numbers 表格',
+    'key': 'Keynote 演示文稿',
+    'rtf': 'RTF 文档',
+    'odt': 'OpenDocument 文档',
+
+    # 图片类型
+    'jpg': 'JPEG 图像',
+    'jpeg': 'JPEG 图像',
+    'png': 'PNG 图像',
+    'gif': 'GIF 图像',
+    'bmp': 'BMP 图像',
+    'svg': 'SVG 图像',
+    'webp': 'WebP 图像',
+    'tiff': 'TIFF 图像',
+    'ico': 'ICO 图标',
+
+    # 音频类型
+    'mp3': 'MP3 音频',
+    'wav': 'WAV 音频',
+    'aac': 'AAC 音频',
+    'flac': 'FLAC 音频',
+    'ogg': 'OGG 音频',
+    'm4a': 'M4A 音频',
+
+    # 视频类型
+    'mp4': 'MP4 视频',
+    'avi': 'AVI 视频',
+    'mov': 'MOV 视频',
+    'wmv': 'WMV 视频',
+    'flv': 'FLV 视频',
+    'mkv': 'MKV 视频',
+    'webm': 'WebM 视频',
+
+    # 压缩类型
+    'zip': 'ZIP 压缩文件',
+    'rar': 'RAR 压缩文件',
+    '7z': '7Z 压缩文件',
+    'tar': 'TAR 压缩文件',
+    'gz': 'GZIP 压缩文件',
+    'bz2': 'BZ2 压缩文件',
+
+    # 其他常见类型
+    'exe': '可执行文件',
+    'apk': 'Android 应用程序',
+    'iso': 'ISO 镜像文件',
+    'dmg': 'DMG 镜像文件',
+}
+
+
+@lru_cache(maxsize=128)  # 缓存最近的128个文件类型查询
+def get_file_type(file_extension):
+    """
+    根据文件扩展名返回中文文件类型描述。缓存机制减少重复计算。
+    :param file_extension: 文件的扩展名 (不带点)
+    :return: 文件类型的中文描述
+    """
+    return file_type_map.get(file_extension.lower(), f'{file_extension.upper()} 文件')
+
+
+def process_file_name(file_name):
+    """
+    处理文件名，提取扩展名并通过 get_file_type 函数获取文件类型
+    :param file_name: 文件名
+    :return: 中文文件类型
+    """
+    file_extension = file_name.split('.')[-1] if '.' in file_name else 'unknown'
+    return get_file_type(file_extension)
+
+
+# 文件大小转换：字节数转为可阅读的字符串
+def human_readable_size(size_bytes):
+    if size_bytes == 0:
+        return "0 B"
+    size_name = ("B", "KB", "MB", "GB", "TB", "PB")
+    i = int(math.floor(math.log(size_bytes, 1024)))
+    p = math.pow(1024, i)
+    s = round(size_bytes / p, 2)
+    return f"{s} {size_name[i]}"
 
 
 # md5加密
@@ -85,53 +174,3 @@ def send_verify_code_email(receive_list, username, request):
     html_content = html_template.render(params_html, request)  # 向模版传递参数
     send_email(receive_list, 'Amos Cloud 验证码', html_content)
     return True
-
-
-# 将文件夹压缩为zip
-# directory 是要压缩的文件夹的路径，zip_filename 是要创建的 ZIP 文件的路径和名称。
-# 函数内部使用 os.walk 来遍历文件夹中的文件和子文件夹，
-# 然后使用 zipfile.ZipFile 创建一个 ZIP 文件对象，并使用 write 方法将文件添加到 ZIP 文件中。
-# os.path.relpath 用于获取文件相对于根文件夹的路径。
-def zip_directory(directory, zip_filename):
-    with zipfile.ZipFile(zip_filename, 'w', zipfile.ZIP_DEFLATED) as zipf:
-        for root, dirs, files in os.walk(directory):
-            for file in files:
-                zipf.write(os.path.join(root, file), os.path.relpath(os.path.join(root, file), directory))
-    return True
-
-
-# 解压zip文件
-# zip_file 是要解压缩的 zip 文件的路径，extract_to 是解压缩后的文件夹路径
-def unzip(zip_file, extract_to):
-    with zipfile.ZipFile(zip_file, 'r') as zip_ref:
-        zip_ref.extractall(extract_to)
-    return True
-
-
-# 获取文件夹总大小
-def get_folder_size(folder_path):
-    total_size = 0
-    for dirpath, dirnames, filenames in os.walk(folder_path):
-        for filename in filenames:
-            filepath = os.path.join(dirpath, filename)
-            total_size += os.path.getsize(filepath)
-    return total_size
-
-
-# 转换为更容易理解的单位
-def convert_bytes(size_bytes):
-    if size_bytes == 0:
-        return "0B"
-    size_name = ("B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB")
-    i = int(math.floor(math.log(size_bytes, 1024)))
-    p = math.pow(1024, i)
-    s = round(size_bytes / p, 1)
-    return "%s %s" % (s, size_name[i])
-
-
-# 校验文件或文件夹名称是否合法
-def is_valid_filename(filename):
-    # 定义正则表达式：只允许字母、数字、下划线、连字符，且不能以空格开头或结尾
-    # 不允许的字符包括：\/:*?"<>|（这些在Windows文件系统中是非法的字符）
-    pattern = r'^[^\\/:*?"<>|]+[^\\/:*?"<>|\s]$'
-    return bool(re.match(pattern, filename))

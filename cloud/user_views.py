@@ -1,6 +1,5 @@
 import json
 import os
-from xml.etree.ElementTree import tostring
 
 from django.core.exceptions import ObjectDoesNotExist
 from django.utils import timezone
@@ -66,11 +65,11 @@ def register(request):
         return global_function.json_response('', 'MEDIA_ROOT 或 user_id 不是有效的字符串', status.HTTP_400_BAD_REQUEST)
 
     # 发送注册成功邮件
-    # html_content = loader.get_template('register_success.html').render({
-    #     'username': username,
-    #     'current_time': register_time
-    # }, request)
-    # global_function.send_email([email], '欢迎来到Amos Cloud网盘！', html_content)
+    html_content = loader.get_template('register_success.html').render({
+        'username': username,
+        'current_time': register_time
+    }, request)
+    global_function.send_email([email], '欢迎来到Amos Cloud网盘！', html_content)
 
     return global_function.json_response('', '注册成功', status.HTTP_200_OK)
 

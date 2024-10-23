@@ -1,19 +1,17 @@
 import json
+import math
 import os
-import time
-import shutil
 import re
+import uuid
 
-from django.http import FileResponse, QueryDict
 from rest_framework import status
 
-from cloud_disk_backend import global_function
-from cloud_disk_backend import settings
+from cloud_disk_backend import global_function, settings
 from cloud import models as cloud_models
 
+# 静态变量
+CHUNK_THRESHOLD = 10 * 1024 * 1024  # 分片阈值为 10MB
 
-# 规定current_path: /name
-# 规定file_name:/name.jpg
 
 # 新建文件夹
 def new_folder(request):
@@ -64,134 +62,104 @@ def new_folder(request):
     return global_function.json_response('', '新建文件夹成功', status.HTTP_201_CREATED)
 
 
-# 上传单个或多个文件
-def upload_file(request, username):
-    file_list = request.FILES.getlist('file_list')
-    current_path = request.POST.get('current_path')
-    # 上传文件
-    for file in file_list:
-        f = open(settings.MEDIA_ROOT + '/' + username + current_path + file.name, mode='wb+')
-        for chunk in file.chunks():
-            f.write(chunk)
-        f.close()
-    return global_function.json_response('', '文件上传成功', status.HTTP_200_OK)
-
-
 # 获取某目录下文件列表
 def get_filelist(request):
+    # 从请求头获取用户ID
     user_id = request.META.get('HTTP_AMOS_CLOUD_ID')
     parent_folder_id = request.GET.get('parent_folder_id')
+
+    # 初始化文件列表
     file_list = []
 
-    # 获取文件夹列表
-    subfolders = cloud_models.Folder.objects.filter(uuid=user_id, parent_folder_id=parent_folder_id).values_list('name',
-                                                                                                                 flat=True)
-    # 填充 file_list
-    for folder_name in subfolders:
+    # 批量获取文件夹和文件列表
+    subfolders = cloud_models.Folder.objects.filter(uuid=user_id, parent_folder_id=parent_folder_id).only('folder_id', 'name',
+                                                                                             'created_at')
+    subfiles = cloud_models.File.objects.filter(uuid=user_id, folder_id=parent_folder_id).only('file_id', 'name', 'size',
+                                                                                  'updated_at')
+
+    # 填充文件夹列表
+    for folder in subfolders:
+        temp_folder_obj = {
+            'id': str(folder.folder_id),  # 文件夹的ID
+            'name': folder.name,  # 文件夹的名称
+            'type': '文件夹',  # 标识类型为文件夹
+            'size': '--',  # 文件夹没有大小，使用 '--' 或者 0 表示
+            'lastModifiedTime': folder.created_at.strftime('%Y-%m-%d %H:%M:%S'),  # 使用文件夹的创建时间作为修改时间
+        }
+        file_list.append(temp_folder_obj)
+
+    # 填充文件列表
+    for file in subfiles:
         temp_file_obj = {
-            'name': folder_name,
-            'type': '文件夹',  # 可以设置类型为 'folder'
-            'size': '--',  # 文件夹没有大小，留空或设置为 0
-            'lastModifiedTime': '',  # 如果有修改时间可以填充
+            'id': str(file.file_id),  # 文件的ID
+            'name': file.name,  # 文件的名称
+            'type': global_function.get_file_type(file.name),  # 根据文件名获取文件类型
+            'size': global_function.human_readable_size(file.size),  # 文件的大小转换为易读格式
+            'lastModifiedTime': file.updated_at.strftime('%Y-%m-%d %H:%M:%S'),  # 文件的最后修改时间
         }
         file_list.append(temp_file_obj)
 
+    # 返回文件列表作为响应
     return global_function.json_response(file_list, '获取文件列表成功', status.HTTP_200_OK)
 
 
-# 下载文件或文件夹
-def download(request):
-    check_result = global_function.check_token(request)
-    if check_result:
-        if request.GET.get('current_path') == '/':
-            file_path = settings.MEDIA_ROOT + '/' + check_result + request.GET.get('file_name')
-        else:
-            file_path = settings.MEDIA_ROOT + '/' + check_result + request.GET.get('current_path') + request.GET.get(
-                'file_name')
-        print(file_path)
-        # 判断当前路径是否最后一位是否为/，是的话去除
-        if file_path[-1:] == '/':
-            file_path = file_path[:-1]
-        # 检查文件是否存在
-        if not os.path.exists(file_path):
-            return global_function.json_response('', '文件不存在', status.HTTP_404_NOT_FOUND)
-        else:
-            # 检查目标路径是否为文件夹
-            if os.path.isfile(file_path):
-                return FileResponse(open(file_path, 'rb'))  # 不需要设置=content_type,FileResponse会自动添加
-            elif os.path.isdir(file_path):
-                # 对文件夹进行压缩后返回 zip
-                try:
-                    global_function.zip_directory(file_path, file_path + '.zip')
-                    return FileResponse(open(file_path + '.zip', 'rb'))
-                finally:
-                    os.remove(file_path + '.zip')
-            else:
-                return global_function.json_response('', '未知类型', status.HTTP_400_BAD_REQUEST)
 
-    else:
-        return global_function.json_response('', 'token已过期或不存在，请重新登陆', status.HTTP_403_FORBIDDEN)
+# 上传小文件
+def upload_small_file(request):
+    # 验证输入参数
+    user_id = request.META.get('HTTP_AMOS_CLOUD_ID')
+    folder_id = request.POST.get('folder_id')
+    file_name = request.POST.get('file_name')
+    file_sha256 = request.POST.get('file_sha256')
+    if not all([user_id, folder_id, file_name, file_sha256]):
+        return global_function.json_response('', '缺少必要参数', status.HTTP_400_BAD_REQUEST)
 
+    try:
+        user = cloud_models.User.objects.get(uuid=user_id)  # 获取用户
+        folder = cloud_models.Folder.objects.get(folder_id=folder_id, uuid=user)  # 获取文件夹
+    except (cloud_models.User.DoesNotExist, cloud_models.Folder.DoesNotExist):
+        return global_function.json_response('', '用户或文件夹不存在', status.HTTP_404_NOT_FOUND)
 
-# 删除文件或文件夹
-def delete(request):
-    params = json.loads(request.body)
-    current_path = params['current_path']
-    file_name = params['file_name']
-    check_result = global_function.check_token(request)
-    if check_result:
-        if current_path == '/':
-            file_path = settings.MEDIA_ROOT + '/' + check_result + file_name
-        else:
-            file_path = settings.MEDIA_ROOT + '/' + check_result + current_path + file_name
+    # 获取上传的文件
+    if 'file' not in request.FILES:
+        return global_function.json_response('', '文件不存在', status.HTTP_400_BAD_REQUEST)
 
-        # 判断当前路径是否最后一位是否为/，是的话去除
-        if file_path[-1:] == '/':
-            file_path = file_path[:-1]
-        # 判断是否为根目录
-        if os.path.isdir(file_path):
-            # 获取上级目录名称
-            # 如果上级目录为media则禁止删除
-            parent_folder_name = os.path.basename(os.path.dirname(file_path))
-            if parent_folder_name == 'media':
-                return global_function.json_response('', '根目录禁止删除', status.HTTP_405_METHOD_NOT_ALLOWED)
-        # 检查文件是否存在
-        if not os.path.exists(file_path):
-            return global_function.json_response('', '文件不存在', status.HTTP_404_NOT_FOUND)
-        else:
-            # 将文件或文件夹移动到recycle目录下
-            recycle_path = settings.MEDIA_ROOT + '/' + check_result + '/recycle'
-            shutil.move(file_path, recycle_path)
-            return global_function.json_response('', '已移动至回收站', status.HTTP_200_OK)
-    else:
-        return global_function.json_response('', 'token已过期或不存在，请重新登陆', status.HTTP_403_FORBIDDEN)
+    uploaded_file = request.FILES['file']
 
+    # 校验文件大小（不超过 10MB）
+    if uploaded_file.size > CHUNK_THRESHOLD:  # 10MB
+        return global_function.json_response('', '文件大小超过分片阈值', status.HTTP_400_BAD_REQUEST)
 
-def delete_recycle(request):
-    params = json.loads(request.body)
-    file_name = '/recycle' + params['file_name']
-    check_result = global_function.check_token(request)
-    if check_result:
-        file_path = settings.MEDIA_ROOT + '/' + check_result + file_name
-        # 判断当前路径是否最后一位是否为/，是的话去除
-        if file_path[-1:] == '/':
-            file_path = file_path[:-1]
-        if os.path.isdir(file_path):
-            directory_name = os.path.basename(file_path)
-            if directory_name == 'recycle':
-                return global_function.json_response('', '回收站禁止删除', status.HTTP_405_METHOD_NOT_ALLOWED)
-        # 检查文件是否存在
-        if not os.path.exists(file_path):
-            return global_function.json_response('', '文件不存在', status.HTTP_404_NOT_FOUND)
-        else:
-            os.chmod(file_path, 0o777)
-            if os.path.isdir(file_path):
-                shutil.rmtree(file_path, ignore_errors=False, onerror=None)
-            elif os.path.isfile(file_path):
+    # TODO: 校验同名文件（覆盖、添加副本、不上传）
 
-                os.remove(file_path)
-            else:
-                return global_function.json_response('', '未知类型无法删除', status.HTTP_400_BAD_REQUEST)
-            return global_function.json_response('', '已删除', status.HTTP_200_OK)
-    else:
-        return global_function.json_response('', 'token已过期或不存在，请重新登陆', status.HTTP_403_FORBIDDEN)
+    # 获取文件大小
+    file_size = uploaded_file.size  # 文件大小，单位是字节
+
+    # 重命名文件为 file_id
+    file_id = uuid.uuid4()
+    new_file_name = str(file_id)  # 不带后缀的文件名
+
+    # 保存文件
+    # TODO: 数据库中存储路径需要优化，有点冗余
+    user_root_dir = os.path.join(settings.MEDIA_ROOT, str(user.uuid))  # 构建用户根目录路径
+    file_path = os.path.join(user_root_dir, new_file_name)  # 存储路径
+
+    # 将上传的文件保存到指定路径
+    with open(file_path, 'wb+') as destination:
+        for chunk in uploaded_file.chunks():
+            destination.write(chunk)
+
+    # 创建 File 实例并保存到数据库
+    new_file = cloud_models.File(
+        file_id=file_id,
+        name=file_name,
+        size=file_size,
+        folder_id=folder,
+        uuid=user,
+        path=file_path,
+        file_sha256=file_sha256,
+        is_complete=True  # 假设上传的文件是完整的
+    )
+    new_file.save()
+    file_id = str(new_file.file_id)
+    return global_function.json_response({"file_id": file_id}, '小文件上传成功', status.HTTP_201_CREATED)
