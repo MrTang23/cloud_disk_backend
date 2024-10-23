@@ -6,7 +6,7 @@ urlpatterns = [
     path('new_folder', upload_views.new_folder),
     path('register', user_views.register),
     path('login', user_views.login),
-    path('find_user', user_views.find_user),
+    path('find_user', get_info_views.find_user),
     path('get_filelist', get_info_views.get_filelist),
     path('upload_small_file', upload_views.upload_small_file),
     path('download_file', download_views.download_file),
