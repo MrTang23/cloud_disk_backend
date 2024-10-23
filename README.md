@@ -9,6 +9,9 @@
 - **姓名**: Amos Tang
 - **邮箱**: amostang23@icloud.com
 
+## 文档
+- **后端接口文档**: https://doc.cloud.amostang.ltd/
+
 ## 主要功能
 
 - **用户注册与身份验证**：实现安全的用户注册和登录机制，发送验证邮件以确认用户身份。每个用户分配唯一 UUID。
