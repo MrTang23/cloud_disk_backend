@@ -32,10 +32,42 @@ class Folder(models.Model):
 class File(models.Model):
     file_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=255)  # 文件名称
+    size = models.BigIntegerField(default=0)  # 文件大小（以字节为单位）
     folder_id = models.ForeignKey(Folder, related_name='files', on_delete=models.CASCADE)  # 所属文件夹
     uuid = models.ForeignKey(User, on_delete=models.CASCADE)  # 所属用户
-    path = models.CharField(max_length=255)  # 文件存储路径
+    path = models.CharField(max_length=255, unique=True)  # 文件存储路径，存放完整文件或片段的路径
+    total_chunks = models.IntegerField(default=0)  # 总片段数，非分片文件则为0
+    uploaded_chunks = models.IntegerField(default=0)  # 已上传片段数
+    is_complete = models.BooleanField(default=False)  # 上传是否完成
+    file_sha256 = models.CharField(max_length=64, null=True, blank=True)  # 文件校验和
+    is_chunked = models.BooleanField(default=False)  # 标识文件是否为分片上传
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def save(self, *args, **kwargs):
+        # 如果 path 为空，使用 UUID 生成文件的存储路径
+        if not self.path:
+            self.path = f'media/{self.uuid.uuid}/{self.file_id}/'
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return self.name
+
+
+class FileChunk(models.Model):
+    chunk_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    file = models.ForeignKey(File, related_name='chunks', on_delete=models.CASCADE)  # 所属文件
+    chunk_number = models.IntegerField()  # 片段编号，从1开始
+    chunk_sha256 = models.CharField(max_length=64)  # 片段的校验和
+    path = models.CharField(max_length=255)  # 片段存储路径
+    uploaded = models.BooleanField(default=False)  # 片段是否已上传
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('file', 'chunk_number')  # 保证每个文件的片段编号是唯一的
+
+    def __str__(self):
+        return f'{self.file.name} - Chunk {self.chunk_number}'
 
 
 class TempToken(models.Model):
@@ -48,7 +80,7 @@ class TempToken(models.Model):
         if not self.token:
             self.token = secrets.token_hex(32)  # 生成一个64字符的临时token
         if not self.expires_at:
-            self.expires_at = timezone.now() + timedelta(days=7)  # 7 天后过期
+            self.expires_at = timezone.now() + timedelta(days=100)  # 7 天后过期
         super().save(*args, **kwargs)
 
     def is_valid(self):
