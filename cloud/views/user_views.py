@@ -110,25 +110,3 @@ def login(request):
         return global_function.json_response('', '用户名或邮箱不存在', status.HTTP_404_NOT_FOUND)
     except Exception as e:
         return global_function.json_response('', str(e), status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-
-def find_user(request):
-    identifier = request.GET.get('identifier')
-    if not identifier:
-        return global_function.json_response('', '请提供一个标识符', status.HTTP_400_BAD_REQUEST)
-
-    try:
-        # 尝试查找用户名
-        cloud_models.User.objects.get(username=identifier)
-        return global_function.json_response('username', '标识符为用户名', status.HTTP_200_OK)
-    except ObjectDoesNotExist:
-        pass  # 如果未找到用户名，继续尝试邮箱查找
-
-    try:
-        # 尝试查找邮箱
-        cloud_models.User.objects.get(email=identifier)
-        return global_function.json_response('email', '标识符为邮箱', status.HTTP_200_OK)
-    except ObjectDoesNotExist:
-        pass  # 如果未找到邮箱，返回不存在的信息
-
-    return global_function.json_response('', '该标识符不存在与用户表中', status.HTTP_404_NOT_FOUND)

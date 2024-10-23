@@ -1,5 +1,4 @@
 import json
-import math
 import os
 import re
 import uuid
@@ -60,48 +59,6 @@ def new_folder(request):
     )
 
     return global_function.json_response('', '新建文件夹成功', status.HTTP_201_CREATED)
-
-
-# 获取某目录下文件列表
-def get_filelist(request):
-    # 从请求头获取用户ID
-    user_id = request.META.get('HTTP_AMOS_CLOUD_ID')
-    parent_folder_id = request.GET.get('parent_folder_id')
-
-    # 初始化文件列表
-    file_list = []
-
-    # 批量获取文件夹和文件列表
-    subfolders = cloud_models.Folder.objects.filter(uuid=user_id, parent_folder_id=parent_folder_id).only('folder_id', 'name',
-                                                                                             'created_at')
-    subfiles = cloud_models.File.objects.filter(uuid=user_id, folder_id=parent_folder_id).only('file_id', 'name', 'size',
-                                                                                  'updated_at')
-
-    # 填充文件夹列表
-    for folder in subfolders:
-        temp_folder_obj = {
-            'id': str(folder.folder_id),  # 文件夹的ID
-            'name': folder.name,  # 文件夹的名称
-            'type': '文件夹',  # 标识类型为文件夹
-            'size': '--',  # 文件夹没有大小，使用 '--' 或者 0 表示
-            'lastModifiedTime': folder.created_at.strftime('%Y-%m-%d %H:%M:%S'),  # 使用文件夹的创建时间作为修改时间
-        }
-        file_list.append(temp_folder_obj)
-
-    # 填充文件列表
-    for file in subfiles:
-        temp_file_obj = {
-            'id': str(file.file_id),  # 文件的ID
-            'name': file.name,  # 文件的名称
-            'type': global_function.get_file_type(file.name),  # 根据文件名获取文件类型
-            'size': global_function.human_readable_size(file.size),  # 文件的大小转换为易读格式
-            'lastModifiedTime': file.updated_at.strftime('%Y-%m-%d %H:%M:%S'),  # 文件的最后修改时间
-        }
-        file_list.append(temp_file_obj)
-
-    # 返回文件列表作为响应
-    return global_function.json_response(file_list, '获取文件列表成功', status.HTTP_200_OK)
-
 
 
 # 上传小文件
