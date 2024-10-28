@@ -15,7 +15,7 @@ def check_file_system():
 
 
 def check_token_validity(request):
-    """验证请求头中token是否有效"""
+    """验证请求头中token是否有效，若令牌过期则自动删除"""
     token_str = request.META.get('HTTP_AMOS_CLOUD_TOKEN')
     user_id = request.META.get('HTTP_AMOS_CLOUD_ID')
 
@@ -30,9 +30,18 @@ def check_token_validity(request):
     if not user:
         return False
 
-    # 查询 TempToken 表，检查是否存在与 token_str 和 user_id 匹配的记录，并验证其有效性
+    # 查询 TempToken 表，检查是否存在与 token_str 和 user_id 匹配的记录
     temp_token = TempToken.objects.filter(token=token_str, uuid=user).first()
-    return temp_token.is_valid() if temp_token else False
+
+    # 如果令牌存在，检查其有效性，过期则删除
+    if temp_token:
+        if temp_token.is_valid():
+            return True
+        else:
+            # 令牌已过期，自动删除
+            temp_token.delete()
+
+    return False
 
 
 class CustomMiddleware:
