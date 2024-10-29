@@ -8,8 +8,10 @@ from django.template import loader
 from django.utils import timezone
 from django.core.mail import send_mail
 from django.http import JsonResponse
+from rest_framework import status
+
 from cloud_disk_backend import settings
-from functools import lru_cache
+from functools import lru_cache, wraps
 
 # 文件类型映射
 file_type_map = {
@@ -90,6 +92,28 @@ def process_file_name(file_name):
     """
     file_extension = file_name.split('.')[-1] if '.' in file_name else 'unknown'
     return get_file_type(file_extension)
+
+
+def method_check(allowed_methods):
+    """
+        检查请求方法是否在允许的范围内，并根据请求方法返回相应的错误或继续处理。
+        :param allowed_methods: list - 允许的请求方法列表（如 ['GET', 'POST']）
+        :return: HttpResponse - 若请求方法不被允许，返回自定义错误响应；否则返回 None 表示允许继续处理
+    """
+
+    def decorator(view_func):
+        @wraps(view_func)
+        def _wrapped_view(request, *args, **kwargs):
+            if request.method not in allowed_methods:
+                # 使用自定义 json_response 返回方法错误
+                return json_response('',
+                                     f"请求方法 {request.method} 不被允许。请使用以下方法：{', '.join(allowed_methods)}",
+                                     status.HTTP_405_METHOD_NOT_ALLOWED)
+            return view_func(request, *args, **kwargs)
+
+        return _wrapped_view
+
+    return decorator
 
 
 # 文件大小转换：字节数转为可阅读的字符串

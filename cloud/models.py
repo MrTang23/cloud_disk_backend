@@ -71,7 +71,7 @@ class File(models.Model):
             self.path = f'media/{self.uuid.uuid}/{self.file_id}/'
 
         # 自动更新文件完成状态
-        if self.total_chunks > 0 and self.uploaded_chunks == self.total_chunks:
+        if 0 < self.total_chunks == self.uploaded_chunks:
             self.is_complete = True
 
         super().save(*args, **kwargs)
