@@ -1,3 +1,4 @@
+# 统一的查询接口（用户信息、文件信息、文件夹信息）
 from django.core.exceptions import ObjectDoesNotExist
 from rest_framework import status
 from uuid import UUID
