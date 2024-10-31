@@ -13,4 +13,5 @@ urlpatterns = [
     path('download', download_views.download_small_file_content),
     path('move_folder_to_recycle_bin', delete_views.move_folder_to_recycle_bin),
     path('move_file_to_recycle_bin', delete_views.move_file_to_recycle_bin),
+    path('rename_item', upload_views.rename_item),
 ]
