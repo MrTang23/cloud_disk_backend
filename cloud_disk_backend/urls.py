@@ -7,8 +7,8 @@ from cloud.views.utils import common_actions
 
 urlpatterns = [
     # 身份验证操作
-    path('register', auth_views.register, name='register'),
-    path('login', auth_views.login, name='login'),
+    path('auth/register', auth_views.register, name='register'),
+    path('auth/login', auth_views.login, name='login'),
 
     # 文件管理操作
     path('file/upload_small_file', file_actions.upload_small_file, name='upload_small_file'),
@@ -21,9 +21,9 @@ urlpatterns = [
          name='move_folder_to_recycle_bin'),
 
     # 查询操作
-    path('user/find', query_views.find_user, name='find_user'),
-    path('file/metadata', query_views.get_file_metadata, name='get_file_metadata'),
-    path('file/list', query_views.get_filelist, name='get_filelist'),
+    path('query/find_user', query_views.find_user, name='find_user'),
+    path('query/file_metadata', query_views.get_file_metadata, name='get_file_metadata'),
+    path('query/file_list', query_views.get_filelist, name='get_filelist'),
 
     # 通用操作
     path('rename', common_actions.rename_item, name='rename_item')
