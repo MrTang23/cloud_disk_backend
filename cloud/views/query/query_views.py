@@ -2,7 +2,8 @@
 from django.core.exceptions import ObjectDoesNotExist
 from rest_framework import status
 from uuid import UUID
-from cloud_disk_backend.global_function import method_check, json_response, human_readable_size, get_file_type
+from cloud_disk_backend.global_function import method_check, json_response, human_readable_size, get_file_type, \
+    process_file_name
 from cloud.models import User, Folder, File
 
 
@@ -45,16 +46,33 @@ def get_filelist(request):
     user_id = request.META.get('HTTP_AMOS_CLOUD_ID')
     parent_folder_id = request.GET.get('parent_folder_id')
 
+    # 校验请求完整性
+    if not user_id:
+        return json_response('', '缺少用户ID', status.HTTP_400_BAD_REQUEST)
+
+    try:
+        # 如果 parent_folder_id 为空，查找用户根文件夹的 ID
+        if not parent_folder_id:
+            root_folder = Folder.objects.get(uuid=user_id, parent_folder_id__isnull=True)
+            parent_folder_id = root_folder.folder_id
+        else:
+            # 验证 parent_folder_id 是否存在且属于该用户
+            if not Folder.objects.filter(uuid=user_id, folder_id=parent_folder_id).exists():
+                return json_response('', '无效的父文件夹ID', status.HTTP_400_BAD_REQUEST)
+
+    except Folder.DoesNotExist:
+        return json_response('', '用户根文件夹不存在', status.HTTP_404_NOT_FOUND)
+
     # 初始化文件列表
     file_list = []
 
     # 批量获取文件夹和文件列表
-    subfolders = Folder.objects.filter(uuid=user_id, parent_folder_id=parent_folder_id).only('folder_id',
-                                                                                             'name',
-                                                                                             'created_at')
-    subfiles = File.objects.filter(uuid=user_id, folder_id=parent_folder_id).only('file_id', 'name',
-                                                                                  'size',
-                                                                                  'updated_at')
+    subfolders = Folder.objects.filter(uuid=user_id, parent_folder_id=parent_folder_id).only(
+        'folder_id', 'name', 'created_at'
+    )
+    subfiles = File.objects.filter(uuid=user_id, folder_id=parent_folder_id).only(
+        'file_id', 'name', 'size', 'updated_at'
+    )
 
     # 填充文件夹列表
     for folder in subfolders:
@@ -62,7 +80,7 @@ def get_filelist(request):
             'id': str(folder.folder_id),  # 文件夹的ID
             'name': folder.name,  # 文件夹的名称
             'type': '文件夹',  # 标识类型为文件夹
-            'size': '--',  # 文件夹没有大小，使用 '--' 或者 0 表示
+            'size': '--',  # 文件夹没有大小，使用 '--' 表示
             'lastModifiedTime': folder.created_at.strftime('%Y-%m-%d %H:%M:%S'),  # 使用文件夹的创建时间作为修改时间
         }
         file_list.append(temp_folder_obj)
@@ -72,7 +90,7 @@ def get_filelist(request):
         temp_file_obj = {
             'id': str(file.file_id),  # 文件的ID
             'name': file.name,  # 文件的名称
-            'type': get_file_type(file.name),  # 根据文件名获取文件类型
+            'type': process_file_name(file.name),  # 根据文件名获取文件类型
             'size': human_readable_size(file.size),  # 文件的大小转换为易读格式
             'lastModifiedTime': file.updated_at.strftime('%Y-%m-%d %H:%M:%S'),  # 文件的最后修改时间
         }
@@ -103,3 +121,22 @@ def find_user(request):
         pass  # 如果未找到邮箱，返回不存在的信息
 
     return json_response('', '该标识符不存在与用户表中', status.HTTP_404_NOT_FOUND)
+
+
+from django.http import HttpResponse
+
+
+# 回声接口
+@method_check(["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"])
+def echo_request(request):
+    # 响应对象，用于返回原始请求内容
+    response = HttpResponse(content_type=request.content_type)
+
+    # 设置响应头与请求头一致
+    for header, value in request.headers.items():
+        response[header] = value
+
+    # 设置响应内容为原始请求体
+    response.content = request.body
+
+    return response

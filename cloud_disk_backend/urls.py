@@ -24,6 +24,7 @@ urlpatterns = [
     path('query/find_user', query_views.find_user, name='find_user'),
     path('query/file_metadata', query_views.get_file_metadata, name='get_file_metadata'),
     path('query/file_list', query_views.get_filelist, name='get_filelist'),
+    path('query/echo_request', query_views.echo_request, name='echo_request'),
 
     # 通用操作
     path('rename', common_actions.rename_item, name='rename_item')
